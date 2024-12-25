@@ -1,0 +1,23 @@
+{
+  "name": "http_server",
+  "version": "1.0.0",
+  "description": "HTTP Server",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/ahmedsamyh/http_server.git"
+  },
+  "keywords": [
+    "http",
+    "server"
+  ],
+  "author": "momoyon",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ahmedsamyh/http_server/issues"
+  },
+  "homepage": "https://github.com/ahmedsamyh/http_server#readme"
+}
