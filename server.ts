@@ -1,4 +1,3 @@
-import { constants } from "node:os";
 import * as http from "node:http";
 import process from "node:process";
 import fs from "node:fs";
@@ -8,14 +7,31 @@ const host: string = "127.0.0.1";
 
 const options = {};
 const ROOT_DEFAULTS = ["index.html"];
+const cwd = "./";
+
+
+function respondWithFileContent(filename: string, res: http.ServerResponse<http.IncomingMessage>) {
+  return new Promise((resolve, reject) => {
+    fs.readFile(filename, (err, data) => {
+      if (err) {
+        console.error(`[ERROR]: ${err}`);
+        reject(false);
+      } else {
+        //console.log(`Read ${data.length} Bytes from ${filename}`);
+        res.writeHead(200, { "content-type": "text/html", "content-length": data.length });
+        res.write(data);
+        res.end();
+        resolve(true);
+      }
+    });
+  });
+};
 
 const server = http.createServer(options, (req, res) => {
   console.log(`[${req.method}] ${req.url}`);
   //console.log(`Got request from ${req.headers.host} accepting only: ${JSON.stringify(req.headers.accept)}`);
-  if (
-    req.headers.accept &&
-    req.headers.accept.search("text/html") != -1
-  ) {
+  if (req.headers.accept &&
+    req.headers.accept.search("text/html") != -1) {
     if (typeof req.url === "string") {
       const url = new URL(
         `http://${process.env.HOST ?? "localhost"}${req.url}`,
@@ -25,21 +41,27 @@ const server = http.createServer(options, (req, res) => {
 
       if (pathname == "/") {
         //function stat(path: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, stats: fs.Stats) => void): void (+3 overloads)
+
         for (const file of ROOT_DEFAULTS) {
-          console.log(`Checking if ${file} exists...`);
-          fs.stat(file, (err, stats) => {
-            if (err && err.errno === constants.errno.ENOENT) {
-              console.error(`File ${file} doesn't exist; Skipping...`);
+          let full_path = cwd + file;
+          //console.log(`Checking if ${full_path} exists...`);
+          fs.stat(full_path, (err, _stats) => {
+            if (err && err.code === "ENOENT") {
+              console.error(`full_path ${full_path} doesn't exist; Skipping...`);
             } else {
-              console.log(stats);
+              //console.log("OK");
+              let root_file = full_path;
+              respondWithFileContent(root_file, res);
+              return;
             }
           });
         }
-        //res.writeHead(200, {
-        //	"content-type": "text/html",
-        //});
-        //res.write("<h1>Hello from HTTP Server</h1>");
-        //res.end();
+      } else {
+        respondWithFileContent(cwd + pathname.slice(1), res).catch((_err) => {
+          // TODO: Maybe respond with a custom 404 page?
+          res.writeHead(404);
+          res.end();
+        });
       }
     }
   }
