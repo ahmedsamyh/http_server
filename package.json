@@ -2,10 +2,10 @@
   "name": "http_server",
   "version": "1.0.0",
   "description": "HTTP Server",
-  "main": ".\\js\\index.js",
+  "main": "./js/server.js",
   "scripts": {
-    "transpile": ".\\node_modules\\.bin\\tsc index.ts --outDir js",
-    "run": "node .\\js\\index.js"
+    "transpile": "./node_modules/.bin/tsc server.ts --outDir js",
+    "serve": "node ./js/server.js"
   },
   "repository": {
     "type": "git",
