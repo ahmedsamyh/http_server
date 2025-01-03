@@ -6,8 +6,7 @@ const PORT: number = 6969;
 const host: string = "127.0.0.1";
 
 const options = {};
-// TODO: Use a hashmap with the name as the key and the extension as the key.
-const ROOT_DEFAULTS = ["index.html"];
+const COMMON_INDEX_FILES = ["index.html"];
 const cwd = "./";
 
 function respondWithContent(
@@ -24,6 +23,63 @@ function respondWithContent(
   res.end();
 }
 
+function determineContentType(filename: string): string {
+  let type = "text";
+  let subtype = "plain";
+
+  if (filename.includes(".")) {
+    let ext = filename.substring(filename.lastIndexOf("."));
+    if (ext.startsWith(".")) ext = ext.slice(1);
+    // NOTE: We assume the type is `text`.
+
+    // Determine type
+    switch (ext) {
+      case "png":
+      case "jpeg":
+      case "icon":
+      case "ico":
+      case "jpg":
+      case "avif":
+      case "svg":
+      case "jfif":
+      case "pjpeg":
+      case "pjp":
+      case "tiff":
+        type = "image";
+        break;
+    }
+
+    // Determine subtype
+    switch (ext) {
+      case "png":
+      case "avif":
+      case "svg":
+      case "tiff":
+      case "html":
+      case "css":
+      case "csv":
+      case "xml":
+        subtype = ext;
+        break;
+      case "js":
+        subtype = "javascript";
+        break;
+      case "jpeg":
+      case "jpg":
+      case "jfif":
+      case "pjpeg":
+      case "pjp":
+        subtype = "jpeg";
+        break;
+      case "icon":
+      case "ico":
+        subtype = "icon";
+        break;
+    }
+  }
+  return `${type}/${subtype}`;
+}
+
 function respondWithFileContent(
   filename: string,
   res: http.ServerResponse<http.IncomingMessage>,
@@ -34,8 +90,11 @@ function respondWithFileContent(
         console.error(`[ERROR]: ${err}`);
         reject(false);
       } else {
-        //console.log(`Read ${data.length} Bytes from ${filename}`);
-        respondWithContent(200, data.toString(), "text/html", res);
+        // console.log(`Read ${data.length} Bytes from ${filename}`);
+        const content_type = determineContentType(filename);
+
+        console.log(`${content_type} -> ${data.length}`);
+        respondWithContent(200, data.toString(), content_type, res);
         resolve(true);
         console.log(`[GET] Success '${filename}'`);
       }
@@ -85,23 +144,27 @@ const server = http.createServer(options, (req, res) => {
     const pathname = url.pathname;
     //console.log(`Fetching ${pathname}`);
 
-    // TODO: Handle favicon GET
     if (pathname == "/") {
-      //function stat(path: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, stats: fs.Stats) => void): void (+3 overloads)
-
-      for (const file of ROOT_DEFAULTS) {
-        const full_path = cwd + file;
+      let root_file_found = false;
+      for (const filename of COMMON_INDEX_FILES) {
+        if (!filename.includes(".")) {
+          throw new Error(`Invalid index file ${filename}`);
+        }
+        const full_path = cwd + filename;
         //console.log(`Checking if ${full_path} exists...`);
-        fs.stat(full_path, (err, _stats) => {
-          if (err && err.code === "ENOENT") {
-            console.error(`full_path ${full_path} doesn't exist; Skipping...`);
-          } else {
-            //console.log("OK");
-            const root_file = full_path;
-            respondWithFileContent(root_file, res);
-            return;
-          }
-        });
+        try {
+          fs.statSync(full_path);
+          const root_file = full_path;
+          respondWithFileContent(root_file, res);
+          root_file_found = true;
+          break;
+        } catch (_e) {
+          console.error(`full_path ${full_path} doesn't exist; Skipping...`);
+          continue;
+        }
+      }
+      if (!root_file_found) {
+        respondWith404Page(pathname, res);
       }
     } else {
       const filepath = pathname.slice(1);
