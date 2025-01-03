@@ -10,13 +10,24 @@ const options = {};
 const ROOT_DEFAULTS = ["index.html"];
 const cwd = "./";
 
-function respondWithContent(statuscode: number, data: Uint8Array | string, content_type: string, res: http.ServerResponse<http.IncomingMessage>) {
-  res.writeHead(statuscode, { "content-type": content_type, "content-length": data.length });
+function respondWithContent(
+  statuscode: number,
+  data: Uint8Array | string,
+  content_type: string,
+  res: http.ServerResponse<http.IncomingMessage>,
+) {
+  res.writeHead(statuscode, {
+    "content-type": content_type,
+    "content-length": data.length,
+  });
   res.write(data);
   res.end();
 }
 
-function respondWithFileContent(filename: string, res: http.ServerResponse<http.IncomingMessage>) {
+function respondWithFileContent(
+  filename: string,
+  res: http.ServerResponse<http.IncomingMessage>,
+) {
   return new Promise((resolve, reject) => {
     fs.readFile(filename, (err, data) => {
       if (err) {
@@ -32,8 +43,13 @@ function respondWithFileContent(filename: string, res: http.ServerResponse<http.
   });
 }
 
-function respondWith404Page(path: string, res: http.ServerResponse<http.IncomingMessage>) {
-  respondWithContent(404, `
+function respondWith404Page(
+  path: string,
+  res: http.ServerResponse<http.IncomingMessage>,
+) {
+  respondWithContent(
+    404,
+    `
                       <!DOCTYPE html>\n
                       <html>\n
                         <head>\n
