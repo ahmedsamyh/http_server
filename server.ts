@@ -24,13 +24,13 @@ function respondWithFileContent(filename: string, res: http.ServerResponse<http.
         reject(false);
       } else {
         //console.log(`Read ${data.length} Bytes from ${filename}`);
-        respondWithContent(200, data, "text/html", res);
+        respondWithContent(200, data.toString(), "text/html", res);
         resolve(true);
         console.log(`[GET] Success '${filename}'`);
       }
     });
   });
-};
+}
 
 function respondWith404Page(path: string, res: http.ServerResponse<http.IncomingMessage>) {
   respondWithContent(404, `
@@ -53,7 +53,10 @@ function respondWith404Page(path: string, res: http.ServerResponse<http.Incoming
                           <footer><small>momo-server 0.1a</small></footer>\n
                         </body>\n
                       </html>\n
-                    `, "text/html", res);
+                    `,
+    "text/html",
+    res,
+  );
 }
 
 const server = http.createServer(options, (req, res) => {
@@ -71,21 +74,21 @@ const server = http.createServer(options, (req, res) => {
       //function stat(path: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, stats: fs.Stats) => void): void (+3 overloads)
 
       for (const file of ROOT_DEFAULTS) {
-        let full_path = cwd + file;
+        const full_path = cwd + file;
         //console.log(`Checking if ${full_path} exists...`);
         fs.stat(full_path, (err, _stats) => {
           if (err && err.code === "ENOENT") {
             console.error(`full_path ${full_path} doesn't exist; Skipping...`);
           } else {
             //console.log("OK");
-            let root_file = full_path;
+            const root_file = full_path;
             respondWithFileContent(root_file, res);
             return;
           }
         });
       }
     } else {
-      let filepath = pathname.slice(1);
+      const filepath = pathname.slice(1);
       respondWithFileContent(cwd + filepath, res).catch((_err) => {
         respondWith404Page(filepath, res);
       });
