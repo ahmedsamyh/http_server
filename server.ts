@@ -9,6 +9,27 @@ const options = {};
 const COMMON_INDEX_FILES = ["index.html"];
 const cwd = "./";
 
+class Version {
+  major: number = 0;
+  minor: number = 0;
+  patch: number = 0;
+
+  alpha: boolean = false;
+
+  constructor(major: number = 0, minor: number = 0, patch: number = 0, alpha: boolean = false) {
+    this.major = major;
+    this.minor = minor;
+    this.patch = patch;
+    this.alpha = alpha;
+  }
+
+  toString() {
+    return `${this.major}.${this.minor}.${this.patch}${this.alpha ? "a" : ""}`;
+  }
+}
+
+const version = new Version(0, 0, 2, true);
+
 function respondWithContent(
   statuscode: number,
   data: Uint8Array | string,
@@ -92,7 +113,7 @@ function respondWithFileContent(
         // console.log(`Read ${data.length} Bytes from ${filename}`);
         const content_type = determineContentType(filename);
 
-        console.log(`${content_type} -> ${data.length}`);
+        //console.log(`${content_type} -> ${data.length}`);
         respondWithContent(200, data, content_type, res);
         resolve(true);
         console.log(`[GET] Success '${filename}'`);
@@ -124,7 +145,7 @@ function respondWith404Page(
                           <h1><b>404 Not Found</b></h1>\n
                           <p>Failed to GET ${path}</p>\n
                           <hr>\n
-                          <footer><small>momo-server 0.1a</small></footer>\n
+                          <footer><small>momo-server ${version.toString()}</small></footer>\n
                         </body>\n
                       </html>\n
                     `,
@@ -136,42 +157,55 @@ function respondWith404Page(
 const server = http.createServer(options, (req, res) => {
   console.log(`[${req.method}] ${req.url}`);
   //console.log(`Got request from ${req.headers.host} accepting only: ${JSON.stringify(req.headers.accept)}`);
-  if (typeof req.url === "string") {
-    const url = new URL(
-      `http://${process.env.HOST ?? "localhost"}${req.url}`,
-    );
-    const pathname = url.pathname;
-    //console.log(`Fetching ${pathname}`);
 
-    if (pathname == "/") {
-      let root_file_found = false;
-      for (const filename of COMMON_INDEX_FILES) {
-        if (!filename.includes(".")) {
-          throw new Error(`Invalid index file ${filename}`);
+  const url = new URL(`http://${process.env.HOST ?? "localhost"}${req.url}`);
+  const pathname = url.pathname;
+
+  switch (req.method) {
+    case "GET": {
+      if (pathname == "/") {
+        let root_file_found = false;
+        for (const filename of COMMON_INDEX_FILES) {
+          if (!filename.includes(".")) {
+            throw new Error(`Invalid index file ${filename}`);
+          }
+          const full_path = cwd + filename;
+          //console.log(`Checking if ${full_path} exists...`);
+          try {
+            fs.statSync(full_path);
+            const root_file = full_path;
+            respondWithFileContent(root_file, res);
+            root_file_found = true;
+            break;
+          } catch (_e) {
+            console.error(`full_path ${full_path} doesn't exist; Skipping...`);
+            continue;
+          }
         }
-        const full_path = cwd + filename;
-        //console.log(`Checking if ${full_path} exists...`);
-        try {
-          fs.statSync(full_path);
-          const root_file = full_path;
-          respondWithFileContent(root_file, res);
-          root_file_found = true;
-          break;
-        } catch (_e) {
-          console.error(`full_path ${full_path} doesn't exist; Skipping...`);
-          continue;
+        if (!root_file_found) {
+          respondWith404Page(pathname, res);
         }
+      } else {
+        const filepath = pathname.slice(1);
+        respondWithFileContent(cwd + filepath, res).catch((_err) => {
+          respondWith404Page(filepath, res);
+        });
       }
-      if (!root_file_found) {
-        respondWith404Page(pathname, res);
-      }
-    } else {
-      const filepath = pathname.slice(1);
-      respondWithFileContent(cwd + filepath, res).catch((_err) => {
-        respondWith404Page(filepath, res);
-      });
-    }
+    } break;
+    case "POST": {
+    } break;
+    case "PUT": {
+    } break;
+    case "DELETE": {
+    } break;
+    default: {
+      console.assert(false, "UNREACHABLE!");
+      debugger;
+    } break;
   }
+
+  //console.log(`Fetching ${pathname}`);
+
 });
 
 console.log(`Created server!`);
