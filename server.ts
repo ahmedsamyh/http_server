@@ -19,8 +19,7 @@ function respondWithContent(
     "content-type": content_type,
     "content-length": data.length,
   });
-  res.write(data);
-  res.end();
+  res.end(data);
 }
 
 function determineContentType(filename: string): string {
@@ -73,7 +72,7 @@ function determineContentType(filename: string): string {
         break;
       case "icon":
       case "ico":
-        subtype = "icon";
+        subtype = "x-icon";
         break;
     }
   }
@@ -94,7 +93,7 @@ function respondWithFileContent(
         const content_type = determineContentType(filename);
 
         console.log(`${content_type} -> ${data.length}`);
-        respondWithContent(200, data.toString(), content_type, res);
+        respondWithContent(200, data, content_type, res);
         resolve(true);
         console.log(`[GET] Success '${filename}'`);
       }
