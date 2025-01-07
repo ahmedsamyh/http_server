@@ -179,50 +179,59 @@ function respondWith404Page(
   );
 }
 
+function handleHttpGet(
+  target: string,
+  res: http.ServerResponse<http.IncomingMessage>,
+) {
+  const url = new URL(`http://${process.env.HOST ?? "localhost"}${target}`);
+  const pathname = url.pathname;
+  if (pathname == "/") {
+    let root_file_found = false;
+    for (const filename of COMMON_INDEX_FILES) {
+      if (!filename.includes(".")) {
+        throw new Error(`Invalid index file ${filename}`);
+      }
+      const full_path = cwd + filename;
+      //console.log(`Checking if ${full_path} exists...`);
+      try {
+        fs.statSync(full_path);
+        const root_file = full_path;
+        respondWithFileContent(root_file, res);
+        root_file_found = true;
+        break;
+      } catch (_e) {
+        console.error(
+          `full_path ${full_path} doesn't exist; Skipping...`,
+        );
+        continue;
+      }
+    }
+    if (!root_file_found) {
+      respondWith404Page(pathname, res);
+    }
+  } else {
+    const filepath = pathname.slice(1);
+    respondWithFileContent(cwd + filepath, res).catch((_err) => {
+      respondWith404Page(filepath, res);
+    });
+  }
+}
+
 const server = http.createServer(options, (req, res) => {
   console.log(`[${req.method}] ${req.url}`);
   //console.log(`Got request from ${req.headers.host} accepting only: ${JSON.stringify(req.headers.accept)}`);
 
   const url = new URL(`http://${process.env.HOST ?? "localhost"}${req.url}`);
-  const pathname = url.pathname;
 
   switch (req.method) {
     case "GET":
       {
-        if (pathname == "/") {
-          let root_file_found = false;
-          for (const filename of COMMON_INDEX_FILES) {
-            if (!filename.includes(".")) {
-              throw new Error(`Invalid index file ${filename}`);
-            }
-            const full_path = cwd + filename;
-            //console.log(`Checking if ${full_path} exists...`);
-            try {
-              fs.statSync(full_path);
-              const root_file = full_path;
-              respondWithFileContent(root_file, res);
-              root_file_found = true;
-              break;
-            } catch (_e) {
-              console.error(
-                `full_path ${full_path} doesn't exist; Skipping...`,
-              );
-              continue;
-            }
-          }
-          if (!root_file_found) {
-            respondWith404Page(pathname, res);
-          }
-        } else {
-          const filepath = pathname.slice(1);
-          respondWithFileContent(cwd + filepath, res).catch((_err) => {
-            respondWith404Page(filepath, res);
-          });
-        }
+        respondWithContent(404, "UNIMPLEMENTED METHOD", "document/html", res);
       }
       break;
     case "POST":
       {
+        const pathname = url.pathname;
         logDebug(`request content-type: ${req.headers["content-type"]}`);
         logDebug(`request content-length: ${req.headers["content-length"]}`);
         logDebug(`request target: ${pathname}`);
@@ -233,11 +242,12 @@ const server = http.createServer(options, (req, res) => {
         });
 
         req.on("end", () => {
-          const parsedBody = querystring.parse(body);
+          const _parsedBody = querystring.parse(body);
 
           // TODO: Somehow redirect back to the path that send the POST req
-          res.writeHead(200, { "content-type": "text/plain" });
-          res.end("Form Data Recieved!");
+          handleHttpGet(pathname, res);
+          //res.writeHead(200, { "content-type": "text/plain" });
+          //res.end("Form Data Recieved!");
         });
 
         //respondWithContent(404, "UNIMPLEMENTED METHOD", "document/html", res);
