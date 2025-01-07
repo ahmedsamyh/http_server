@@ -4,8 +4,8 @@
   "description": "HTTP Server",
   "main": "./js/server.js",
   "scripts": {
-    "transpile": "./node_modules/.bin/tsc server.ts --outDir js",
-    "serve": "node ./js/server.js"
+    "debug": "DEBUG=true deno --allow-all ./server.ts" ,
+    "serve": "deno --allow-all ./server.ts"
   },
   "repository": {
     "type": "git",

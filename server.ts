@@ -1,13 +1,33 @@
 import * as http from "node:http";
 import process from "node:process";
 import fs from "node:fs";
+import { Buffer } from "node:buffer";
+import querystring from "node:querystring";
+
+const DEBUG = process.env["DEBUG"];
+function logDebug(msg: string) {
+  if (!DEBUG) return;
+  console.log(`[DEBUG] ${msg}`);
+}
 
 const PORT: number = 6969;
 const host: string = "127.0.0.1";
 
 const options = {};
 const COMMON_INDEX_FILES = ["index.html"];
-const cwd = "./";
+let cwd = "./";
+
+//const _execPath = process.argv.pop();
+//const _sourceFile = process.argv.pop();
+//
+if (process.argv.length > 0) {
+  const _ = process.argv.pop();
+  console.assert(_ !== undefined);
+  if (typeof _ === "string") {
+    cwd = _;
+    if (!cwd.endsWith("/")) cwd += "/";
+  }
+}
 
 class Version {
   major: number = 0;
@@ -16,7 +36,12 @@ class Version {
 
   alpha: boolean = false;
 
-  constructor(major: number = 0, minor: number = 0, patch: number = 0, alpha: boolean = false) {
+  constructor(
+    major: number = 0,
+    minor: number = 0,
+    patch: number = 0,
+    alpha: boolean = false,
+  ) {
     this.major = major;
     this.minor = minor;
     this.patch = patch;
@@ -28,17 +53,17 @@ class Version {
   }
 }
 
-const version = new Version(0, 0, 2, true);
+const version = new Version(0, 0, 3, true);
 
 function respondWithContent(
   statuscode: number,
-  data: Uint8Array | string,
+  data: string | Buffer<globalThis.ArrayBufferLike>,
   content_type: string,
   res: http.ServerResponse<http.IncomingMessage>,
 ) {
   res.writeHead(statuscode, {
     "content-type": content_type,
-    "content-length": data.length,
+    "content-length": Buffer.byteLength(data),
   });
   res.end(data);
 }
@@ -162,53 +187,84 @@ const server = http.createServer(options, (req, res) => {
   const pathname = url.pathname;
 
   switch (req.method) {
-    case "GET": {
-      if (pathname == "/") {
-        let root_file_found = false;
-        for (const filename of COMMON_INDEX_FILES) {
-          if (!filename.includes(".")) {
-            throw new Error(`Invalid index file ${filename}`);
+    case "GET":
+      {
+        if (pathname == "/") {
+          let root_file_found = false;
+          for (const filename of COMMON_INDEX_FILES) {
+            if (!filename.includes(".")) {
+              throw new Error(`Invalid index file ${filename}`);
+            }
+            const full_path = cwd + filename;
+            //console.log(`Checking if ${full_path} exists...`);
+            try {
+              fs.statSync(full_path);
+              const root_file = full_path;
+              respondWithFileContent(root_file, res);
+              root_file_found = true;
+              break;
+            } catch (_e) {
+              console.error(
+                `full_path ${full_path} doesn't exist; Skipping...`,
+              );
+              continue;
+            }
           }
-          const full_path = cwd + filename;
-          //console.log(`Checking if ${full_path} exists...`);
-          try {
-            fs.statSync(full_path);
-            const root_file = full_path;
-            respondWithFileContent(root_file, res);
-            root_file_found = true;
-            break;
-          } catch (_e) {
-            console.error(`full_path ${full_path} doesn't exist; Skipping...`);
-            continue;
+          if (!root_file_found) {
+            respondWith404Page(pathname, res);
           }
+        } else {
+          const filepath = pathname.slice(1);
+          respondWithFileContent(cwd + filepath, res).catch((_err) => {
+            respondWith404Page(filepath, res);
+          });
         }
-        if (!root_file_found) {
-          respondWith404Page(pathname, res);
-        }
-      } else {
-        const filepath = pathname.slice(1);
-        respondWithFileContent(cwd + filepath, res).catch((_err) => {
-          respondWith404Page(filepath, res);
-        });
       }
-    } break;
-    case "POST": {
-    } break;
-    case "PUT": {
-    } break;
-    case "DELETE": {
-    } break;
-    default: {
-      console.assert(false, "UNREACHABLE!");
-      debugger;
-    } break;
+      break;
+    case "POST":
+      {
+        logDebug(`request content-type: ${req.headers["content-type"]}`);
+        logDebug(`request content-length: ${req.headers["content-length"]}`);
+        logDebug(`request target: ${pathname}`);
+
+        let body = "";
+        req.on("data", (chunk) => {
+          body += chunk;
+        });
+
+        req.on("end", () => {
+          const parsedBody = querystring.parse(body);
+
+          // TODO: Somehow redirect back to the path that send the POST req
+          res.writeHead(200, { "content-type": "text/plain" });
+          res.end("Form Data Recieved!");
+        });
+
+        //respondWithContent(404, "UNIMPLEMENTED METHOD", "document/html", res);
+      }
+      break;
+    case "PUT":
+      {
+        respondWithContent(404, "UNIMPLEMENTED METHOD", "document/html", res);
+      }
+      break;
+    case "DELETE":
+      {
+        respondWithContent(404, "UNIMPLEMENTED METHOD", "document/html", res);
+      }
+      break;
+    default:
+      {
+        console.assert(false, "UNREACHABLE!");
+        debugger;
+      }
+      break;
   }
 
   //console.log(`Fetching ${pathname}`);
-
 });
 
-console.log(`Created server!`);
+console.log(`Started server in ${cwd}!`);
 
 server.listen(PORT, host);
 console.log(`Started listening on http://${host}:${PORT}`);
